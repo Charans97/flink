@@ -1,8 +1,8 @@
 Setup 
-    1. Write a docker compose file for FlinkSQL, postgres, kafka, zookeeper, connect , and schema registry. 
-    2. Setup a datagen source connector with the schema defined in purchase-schema.avsc 
-        
-1. purchase-schema.avsc 
+    - Write a docker compose file for FlinkSQL, postgres, kafka, zookeeper, connect , and schema registry. 
+    - Setup a datagen source connector with the schema defined in purchase-schema.avsc 
+       
+-purchase-schema.avsc 
         
 ```bash
  {
