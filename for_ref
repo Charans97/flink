@@ -1,0 +1,119 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: flink-pvc
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: jobmanager
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: jobmanager
+  template:
+    metadata:
+      labels:
+        app: jobmanager
+    spec:
+      containers:
+        - name: jobmanager
+          image: sql-client:latest
+          command: ["jobmanager"]
+          ports:
+            - containerPort: 8081
+          env:
+            - name: FLINK_PROPERTIES
+              value: |
+                jobmanager.rpc.address: jobmanager
+                state.backend: filesystem
+                state.checkpoints.dir: file:///tmp/flink-checkpoints
+                heartbeat.interval: 1000
+                heartbeat.timeout: 5000
+                rest.flamegraph.enabled: true
+                web.backpressure.refresh-interval: 10000
+          volumeMounts:
+            - name: flink-volume
+              mountPath: /tmp/
+      volumes:
+        - name: flink-volume
+          persistentVolumeClaim:
+            claimName: flink-pvc
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: jobmanager
+spec:
+  selector:
+    app: jobmanager
+  ports:
+    - protocol: TCP
+      port: 8081
+      targetPort: 8081
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: taskmanager
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: taskmanager
+  template:
+    metadata:
+      labels:
+        app: taskmanager
+    spec:
+      containers:
+        - name: taskmanager
+          image: sql-client:latest
+          command: ["taskmanager"]
+          env:
+            - name: FLINK_PROPERTIES
+              value: |
+                jobmanager.rpc.address: jobmanager
+                taskmanager.numberOfTaskSlots: 30
+                state.backend: filesystem
+                state.checkpoints.dir: file:///tmp/flink-checkpoints
+                heartbeat.interval: 1000
+                heartbeat.timeout: 5000
+          volumeMounts:
+            - name: flink-volume
+              mountPath: /tmp/
+      volumes:
+        - name: flink-volume
+          persistentVolumeClaim:
+            claimName: flink-pvc
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sql-client
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: sql-client
+  template:
+    metadata:
+      labels:
+        app: sql-client
+    spec:
+      containers:
+        - name: sql-client
+          image: sql-client:latest
+          command: ["bin/sql-client.sh"]
+          env:
+            - name: FLINK_PROPERTIES
+              value: |
+                jobmanager.rpc.address: jobmanager
+                rest.address: jobmanager
